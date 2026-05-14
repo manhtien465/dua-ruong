@@ -1,0 +1,35 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{md,yml,yaml,json}]
+indent_size = 2
+
+[*.cs]
+# Naming
+dotnet_naming_rule.private_fields_with_underscore.severity = warning
+dotnet_naming_rule.private_fields_with_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_with_underscore.style = underscore_camel_case
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+
+# C# style
+csharp_new_line_before_open_brace = all
+csharp_prefer_simple_using_statement = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = when_on_single_line:suggestion
+
+# Diagnostics
+dotnet_diagnostic.IDE0044.severity = warning   # Make field readonly
+dotnet_diagnostic.IDE0090.severity = suggestion # Use new(...)
+dotnet_diagnostic.CS0649.severity = none        # Field never assigned (Unity SerializeField)
