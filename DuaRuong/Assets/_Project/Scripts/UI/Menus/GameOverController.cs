@@ -34,6 +34,11 @@ namespace DuaRuong.UI.Menus
         {
             if (_playAgainButton != null) _playAgainButton.onClick.AddListener(OnPlayAgain);
             if (_menuButton != null) _menuButton.onClick.AddListener(OnMenu);
+
+            // Auto-find StarRatingDisplay anywhere under the root panel
+            if (_starRating == null && _root != null)
+                _starRating = _root.GetComponentInChildren<StarRatingDisplay>(includeInactive: true);
+
             Hide();
         }
 

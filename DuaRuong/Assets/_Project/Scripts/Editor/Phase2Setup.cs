@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using DuaRuong.UI;
 using DuaRuong.UI.HUD;
+using DuaRuong.UI.Menus;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -52,28 +53,43 @@ namespace DuaRuong.Editor
                 Step("Load sprites", 0.10f);
                 LoadSprites();
 
-                Step("Camera background", 0.16f);
+                Step("Camera background", 0.10f);
                 FixCamera();
 
-                Step("Screen fade", 0.24f);
+                Step("Screen fade", 0.16f);
                 AddScreenFade();
 
-                Step("Panel fade-in", 0.34f);
+                Step("Panel fade-in", 0.22f);
                 AddPanelFadeIns();
 
-                Step("Button feedback", 0.44f);
+                Step("Button feedback", 0.28f);
                 AddButtonFeedbacks();
 
-                Step("Score pop", 0.54f);
+                Step("Score pop", 0.34f);
                 AddScorePop();
 
-                Step("Apply sprites", 0.64f);
+                Step("Juicy text", 0.40f);
+                AddJuicyText();
+
+                Step("Rolling score", 0.46f);
+                AddRollingScore();
+
+                Step("Floating score labels", 0.52f);
+                AddFloatingScoreLauncher();
+
+                Step("Star rating", 0.58f);
+                AddStarRating();
+
+                Step("Combo bar", 0.64f);
+                AddComboBar();
+
+                Step("Apply sprites", 0.70f);
                 ApplySprites();
 
-                Step("Màu sắc + font", 0.74f);
+                Step("Màu sắc + font", 0.80f);
                 ApplyColours();
 
-                Step("HUD backgrounds", 0.86f);
+                Step("HUD backgrounds", 0.90f);
                 AddHudPillBackgrounds();
 
                 Step("Lưu scene", 0.95f);
@@ -91,9 +107,14 @@ namespace DuaRuong.Editor
                 "Nhấn Play để xem:\n" +
                 "• Camera nền xanh đậm ruộng bậc thang\n" +
                 "• Màn fade đen → sáng khi bắt đầu\n" +
-                "• Panel mờ dần khi xuất hiện\n" +
-                "• Nút thu nhỏ khi nhấn\n" +
-                "• Score giật nhẹ khi nhặt item",
+                "• Panel mờ dần + scale khi xuất hiện\n" +
+                "• Nút thu nhỏ khi nhấn (spring physics)\n" +
+                "• Score giật nhẹ khi nhặt item\n" +
+                "• Score text bounce khi cộng điểm\n" +
+                "• Floating +X text khi nhặt item\n" +
+                "• Thanh combo bar (đổi màu theo tier)\n" +
+                "• Sao 1-3 reveal tuần tự ở Game Over\n" +
+                "• Score đếm lên ở Game Over",
                 "OK");
         }
 
@@ -164,6 +185,128 @@ namespace DuaRuong.Editor
             if (scoreT == null) return;
             if (scoreT.GetComponent<ScorePop>() == null)
                 scoreT.gameObject.AddComponent<ScorePop>();
+        }
+
+        // Adds JuicyText to ScoreText + ComboText, then wires HudController references.
+        private static void AddJuicyText()
+        {
+            var hud = GameObject.Find("HUD");
+            if (hud == null) return;
+
+            var hudCtrl = hud.GetComponent<HudController>();
+            var so      = hudCtrl != null ? new SerializedObject(hudCtrl) : null;
+
+            var scoreT = hud.transform.Find("ScoreText");
+            if (scoreT != null)
+            {
+                var jt = scoreT.GetComponent<JuicyText>() ?? scoreT.gameObject.AddComponent<JuicyText>();
+                var scoreProp = so?.FindProperty("_scoreJuice");
+                if (scoreProp != null) scoreProp.objectReferenceValue = jt;
+            }
+
+            var comboContainer = hud.transform.Find("ComboContainer");
+            if (comboContainer != null)
+            {
+                var comboT = comboContainer.Find("ComboText");
+                if (comboT != null)
+                {
+                    var jt = comboT.GetComponent<JuicyText>() ?? comboT.gameObject.AddComponent<JuicyText>();
+                    var comboProp = so?.FindProperty("_comboJuice");
+                    if (comboProp != null) comboProp.objectReferenceValue = jt;
+                }
+            }
+
+            so?.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // Adds RollingNumber to GameOver's score text and wires it into GameOverController.
+        private static void AddRollingScore()
+        {
+            var sysGo = GameObject.Find("GameOverSystem");
+            if (sysGo == null) return;
+            var ctrl = sysGo.GetComponent<GameOverController>();
+            if (ctrl == null) return;
+
+            var goPanel = sysGo.transform.Find("GameOverPanel");
+            if (goPanel == null) return;
+            var scoreT = goPanel.Find("ScoreText");
+            if (scoreT == null) return;
+
+            var rolling = scoreT.GetComponent<RollingNumber>() ?? scoreT.gameObject.AddComponent<RollingNumber>();
+
+            var so = new SerializedObject(ctrl);
+            so.FindProperty("_rollingScore").objectReferenceValue = rolling;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // Adds FloatingScoreLauncher to HUD at a good spawn position.
+        private static void AddFloatingScoreLauncher()
+        {
+            var hud = GameObject.Find("HUD");
+            if (hud == null) return;
+            if (hud.GetComponentInChildren<FloatingScoreLauncher>() != null) return;
+
+            var go = new GameObject("FloatingScoreLauncher");
+            go.transform.SetParent(hud.transform, worldPositionStays: false);
+
+            var rt              = go.AddComponent<RectTransform>();
+            rt.anchorMin        = new Vector2(0.5f, 0.35f); // roughly where player character is on screen
+            rt.anchorMax        = new Vector2(0.5f, 0.35f);
+            rt.pivot            = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta        = Vector2.zero;
+
+            go.AddComponent<FloatingScoreLauncher>();
+        }
+
+        // Adds StarRatingDisplay to GameOverPanel and wires GameOverController._starRating.
+        private static void AddStarRating()
+        {
+            var sysGo = GameObject.Find("GameOverSystem");
+            if (sysGo == null) return;
+            var ctrl = sysGo.GetComponent<GameOverController>();
+            if (ctrl == null) return;
+
+            var goPanel = sysGo.transform.Find("GameOverPanel");
+            if (goPanel == null) return;
+            if (goPanel.GetComponentInChildren<StarRatingDisplay>() != null) return;
+
+            var go = new GameObject("StarRating");
+            go.transform.SetParent(goPanel, worldPositionStays: false);
+
+            var rt              = go.AddComponent<RectTransform>();
+            rt.anchorMin        = new Vector2(0.5f, 0.5f);
+            rt.anchorMax        = new Vector2(0.5f, 0.5f);
+            rt.pivot            = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(0f, 240f); // above score text (y=150), below badge (y=260)
+            rt.sizeDelta        = new Vector2(300f, 70f);
+
+            var starRating = go.AddComponent<StarRatingDisplay>();
+
+            var so = new SerializedObject(ctrl);
+            so.FindProperty("_starRating").objectReferenceValue = starRating;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // Adds ComboBar to HUD at the bottom of the screen.
+        private static void AddComboBar()
+        {
+            var hud = GameObject.Find("HUD");
+            if (hud == null) return;
+            if (hud.GetComponentInChildren<ComboBar>() != null) return;
+
+            var go = new GameObject("ComboBar");
+            go.transform.SetParent(hud.transform, worldPositionStays: false);
+
+            var rt              = go.AddComponent<RectTransform>();
+            rt.anchorMin        = new Vector2(0f, 0f);
+            rt.anchorMax        = new Vector2(1f, 0f);
+            rt.pivot            = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta        = new Vector2(0f, 10f);   // full-width thin bar
+
+            go.AddComponent<CanvasGroup>();
+            go.AddComponent<ComboBar>();
         }
 
         // ─────────────────────────────────────────────────────────

@@ -5,20 +5,15 @@ using UnityEngine.UI;
 namespace DuaRuong.UI.HUD
 {
     /// <summary>
-    /// Thin progress bar showing how close the player is to the next combo tier.
-    /// Auto-hides when combo == 0. Changes color and pulses on tier-up.
-    ///
-    /// Setup in Inspector:
-    ///   • _fillImage  — Image with Fill Method = Horizontal
-    ///   • _group      — CanvasGroup on the bar's root (for show/hide alpha)
-    ///   • _thresholds — must match ScoringConfig (default: 0, 10, 25, 50)
-    ///   • _tierColors — one color per threshold (white, yellow, orange, red)
+    /// Progress bar showing distance to the next combo tier.
+    /// Zero Inspector setup: creates its own fill Image child at runtime if not assigned.
+    /// Place inside a Canvas. Recommend sizing to ~600×12 (thin bar at screen bottom).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ComboBar : MonoBehaviour
     {
-        [SerializeField] private Image _fillImage;
-        [SerializeField] private CanvasGroup _group;
+        [SerializeField] private Image       _fillImage;   // auto-created if null
+        [SerializeField] private CanvasGroup _group;       // auto-added if null
 
         [Header("Tiers — must match ScoringConfig")]
         [SerializeField] private int[]   _thresholds = { 0, 10, 25, 50 };
@@ -44,14 +39,18 @@ namespace DuaRuong.UI.HUD
         private void Awake()
         {
             _baseScale = transform.localScale;
+
+            if (_group == null) _group = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
             if (_group != null) _group.alpha = 0f;
+
+            if (_fillImage == null) EnsureBar();
         }
 
         private void OnEnable()
         {
-            GameEvents.ComboChanged        += HandleCombo;
+            GameEvents.ComboChanged          += HandleCombo;
             GameEvents.ComboMilestoneReached += HandleMilestone;
-            GameEvents.GameStarted          += HandleGameStarted;
+            GameEvents.GameStarted           += HandleGameStarted;
         }
 
         private void OnDisable()
@@ -82,10 +81,9 @@ namespace DuaRuong.UI.HUD
         {
             if (_fillImage == null || _thresholds.Length < 2) return;
 
-            int tier     = GetTier(_currentCombo);
-            bool atMax   = tier >= _thresholds.Length - 1;
+            int  tier  = GetTier(_currentCombo);
+            bool atMax = tier >= _thresholds.Length - 1;
 
-            // Fill: progress within current tier to next tier
             float fill = 1f;
             if (!atMax)
             {
@@ -96,22 +94,19 @@ namespace DuaRuong.UI.HUD
 
             _fillImage.fillAmount = fill;
 
-            // Color
             if (tier != _currentTier && tier < _tierColors.Length)
             {
-                _currentTier         = tier;
-                _fillImage.color     = _tierColors[tier];
+                _currentTier     = tier;
+                _fillImage.color = _tierColors[tier];
             }
         }
 
         private void Update()
         {
-            // Smooth show/hide
             if (_group != null)
                 _group.alpha = Mathf.MoveTowards(_group.alpha, _targetAlpha,
                     _showHideSpeed * Time.deltaTime);
 
-            // Tier-up pulse
             if (_pulseTimer > 0f)
             {
                 _pulseTimer -= Time.deltaTime;
@@ -131,6 +126,37 @@ namespace DuaRuong.UI.HUD
             for (int i = 0; i < _thresholds.Length; i++)
                 if (combo >= _thresholds[i]) tier = i;
             return tier;
+        }
+
+        // Creates background + fill Image children automatically
+        private void EnsureBar()
+        {
+            // Background
+            var bgGo = new GameObject("Background");
+            bgGo.transform.SetParent(transform, false);
+            var bgRt        = bgGo.AddComponent<RectTransform>();
+            bgRt.anchorMin  = Vector2.zero;
+            bgRt.anchorMax  = Vector2.one;
+            bgRt.sizeDelta  = Vector2.zero;
+            var bgImg       = bgGo.AddComponent<Image>();
+            bgImg.color     = new Color(0f, 0f, 0f, 0.35f);
+            bgImg.raycastTarget = false;
+
+            // Fill
+            var fillGo = new GameObject("Fill");
+            fillGo.transform.SetParent(transform, false);
+            var fillRt        = fillGo.AddComponent<RectTransform>();
+            fillRt.anchorMin  = Vector2.zero;
+            fillRt.anchorMax  = Vector2.one;
+            fillRt.sizeDelta  = Vector2.zero;
+
+            _fillImage              = fillGo.AddComponent<Image>();
+            _fillImage.type         = Image.Type.Filled;
+            _fillImage.fillMethod   = Image.FillMethod.Horizontal;
+            _fillImage.fillOrigin   = (int)Image.OriginHorizontal.Left;
+            _fillImage.fillAmount   = 0f;
+            _fillImage.color        = _tierColors.Length > 0 ? _tierColors[0] : Color.white;
+            _fillImage.raycastTarget = false;
         }
     }
 }
