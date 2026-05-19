@@ -3,17 +3,12 @@ using TMPro;
 
 namespace DuaRuong.UI
 {
-    /// <summary>
-    /// Utility to add "juice" to TMP_Text elements.
-    /// Provides a scale pop effect when triggered.
-    /// </summary>
     [RequireComponent(typeof(TMP_Text))]
     public sealed class JuicyText : MonoBehaviour
     {
         [Header("Pop Settings")]
         [SerializeField] private float _popScale = 1.2f;
-        [SerializeField] private float _duration = 0.2f;
-        [SerializeField] private AnimationCurve _popCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+        [SerializeField] private float _duration = 0.22f;
 
         private Vector3 _baseScale;
         private float _timer;
@@ -29,25 +24,23 @@ namespace DuaRuong.UI
             if (!_isPopping) return;
 
             _timer += Time.unscaledDeltaTime;
-            float progress = _timer / _duration;
+            float t = _timer / _duration;
 
-            if (progress >= 1f)
+            if (t >= 1f)
             {
                 transform.localScale = _baseScale;
                 _isPopping = false;
+                return;
             }
-            else
-            {
-                float scaleMultiplier = Mathf.Lerp(1f, _popScale, _popCurve.Evaluate(progress));
-                // Simple up then down curve if evaluation is linear
-                // Better to use a curve that goes 0->1->0
-                transform.localScale = _baseScale * scaleMultiplier;
-            }
+
+            // Bell curve: 0 → peak → 0, so scale goes base → popScale → base
+            float bell = Mathf.Sin(t * Mathf.PI);
+            transform.localScale = _baseScale * (1f + (_popScale - 1f) * bell);
         }
 
         public void PlayPop()
         {
-            _timer = 0;
+            _timer = 0f;
             _isPopping = true;
         }
     }
